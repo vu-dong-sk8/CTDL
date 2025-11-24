@@ -1,0 +1,3 @@
+admin|admin123
+user1|123456
+nhanvien1|nv123456
