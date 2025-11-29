@@ -112,26 +112,44 @@ bool kiemTraNgayHopLe(const string& ngay) {
     return true;
 }
 
+bool kiemTraCMND(const string& cmnd) {
+    // Check if CMND contains only numbers and length <= 12
+    if (cmnd.empty() || cmnd.length() > 12) return false;
+    
+    for (char c : cmnd) {
+        if (!isdigit(c)) return false;
+    }
+    return true;
+}
+
 // ==================== CLASS DEFINITIONS ====================
 class KhachHang {
 private:
     int soThuTu;
     string cmnd;
     string hoTen;
+    string maChuyenBay;
+    int soGhe;
 public:
-    KhachHang() : soThuTu(0), cmnd(""), hoTen("") {}
-    KhachHang(int stt, string id, string ten) : soThuTu(stt), cmnd(id), hoTen(ten) {}
+    KhachHang() : soThuTu(0), cmnd(""), hoTen(""), maChuyenBay(""), soGhe(0) {}
+    KhachHang(int stt, string id, string ten) : soThuTu(stt), cmnd(id), hoTen(ten), maChuyenBay(""), soGhe(0) {}
+    KhachHang(int stt, string id, string ten, string maCB, int ghe) 
+        : soThuTu(stt), cmnd(id), hoTen(ten), maChuyenBay(maCB), soGhe(ghe) {}
 
     int laySoThuTu() const { return soThuTu; }
     string layCMND() const { return cmnd; }
     string layHoTen() const { return hoTen; }
+    string layMaChuyenBay() const { return maChuyenBay; }
+    int laySoGhe() const { return soGhe; }
 
     void datSoThuTu(int stt) { soThuTu = stt; }
     void datCMND(const string& id) { cmnd = id; }
     void datHoTen(const string& ten) { hoTen = ten; }
+    void datMaChuyenBay(const string& maCB) { maChuyenBay = maCB; }
+    void datSoGhe(int ghe) { soGhe = ghe; }
 
     string toString() const {
-        return to_string(soThuTu) + "|" + cmnd + "|" + hoTen;
+        return to_string(soThuTu) + "|" + cmnd + "|" + hoTen + "|" + maChuyenBay + "|" + to_string(soGhe);
     }
 
     static KhachHang fromString(const string& str) {
@@ -139,7 +157,9 @@ public:
         string token;
         vector<string> tokens;
         while (getline(ss, token, '|')) tokens.push_back(token);
-        if (tokens.size() >= 3)
+        if (tokens.size() >= 5)
+            return KhachHang(stoi(tokens[0]), tokens[1], tokens[2], tokens[3], stoi(tokens[4]));
+        else if (tokens.size() >= 3)
             return KhachHang(stoi(tokens[0]), tokens[1], tokens[2]);
         return KhachHang();
     }
@@ -298,7 +318,16 @@ public:
         for (int i = 0; i < danhSachVe.kichThuoc(); i++) {
             if (danhSachVe.lay(i).layMaVe() == maVe) {
                 int soGhe = danhSachVe.lay(i).laySoGhe();
+                
+                // Delete ticket file
+                string fileName = maVe + ".txt";
+                remove(fileName.c_str());
+                
                 danhSachGheTrong.them(soGhe);
+                
+                // Sort seats in ascending order
+                sort(danhSachGheTrong.layDuLieu().begin(), danhSachGheTrong.layDuLieu().end());
+                
                 danhSachVe.xoa(i);
                 if (trangThai == 2) trangThai = 1;
                 return true;
@@ -859,6 +888,14 @@ private:
             return;
         }
 
+        // Validate CMND format
+        if (!kiemTraCMND(cmnd)) {
+            setColor(12);
+            cout << "Loi: CMND khong hop le! (Chi chua so va toi da 10 chu so)\n";
+            Sleep(2000);
+            return;
+        }
+
         // TC23: Nhập trống tên
         cout << "Nhap ho ten: ";
         string hoTen;
@@ -879,7 +916,7 @@ private:
             return;
         }
 
-        KhachHang kh(danhSachKhachHang.kichThuoc() + 1, cmnd, hoTen);
+        KhachHang kh(danhSachKhachHang.kichThuoc() + 1, cmnd, hoTen, maCB, soGhe);
         danhSachKhachHang.them(kh);
         QuanLyFile::luuKhachHang(danhSachKhachHang);
 
@@ -903,12 +940,17 @@ private:
         }
 
         setColor(11);
-        cout << left << setw(10) << "STT" << setw(15) << "CMND" << setw(30) << "Ho ten" << endl;
-        cout << "---------------------------------------------------------------\n";
+        cout << left << setw(10) << "STT" << setw(15) << "CMND" << setw(30) << "Ho ten" 
+             << setw(15) << "Ma CB" << setw(10) << "Ghe" << endl;
+        cout << "--------------------------------------------------------------------------------------------\n";
         setColor(15);
         for (int i = 0; i < danhSachKhachHang.kichThuoc(); i++) {
             KhachHang& kh = danhSachKhachHang.lay(i);
-            cout << left << setw(10) << kh.laySoThuTu() << setw(15) << kh.layCMND() << setw(30) << kh.layHoTen() << endl;
+            cout << left << setw(10) << kh.laySoThuTu() 
+                 << setw(15) << kh.layCMND() 
+                 << setw(30) << kh.layHoTen()
+                 << setw(15) << kh.layMaChuyenBay()
+                 << setw(10) << kh.laySoGhe() << endl;
         }
 
         cout << "\nNhap so thu tu khach hang: ";
@@ -933,9 +975,16 @@ private:
             return;
         }
 
-        cout << "Nhap ma chuyen bay: ";
-        string maCB;
-        getline(cin, maCB);
+        // Get flight code and seat number from customer data
+        string maCB = kh->layMaChuyenBay();
+        int soGhe = kh->laySoGhe();
+
+        if (maCB.empty() || soGhe == 0) {
+            setColor(12);
+            cout << "Loi: Thong tin chuyen bay hoac ghe chua duoc nhap!\n";
+            Sleep(2000);
+            return;
+        }
 
         ChuyenBay* cb = nullptr;
         for (int i = 0; i < danhSachChuyenBay.kichThuoc(); i++) {
@@ -951,18 +1000,6 @@ private:
             Sleep(2000);
             return;
         }
-
-        cout << "\nDanh sach ghe trong: ";
-        for (int i = 0; i < cb->layDanhSachGheTrong().kichThuoc(); i++) {
-            cout << cb->layDanhSachGheTrong().lay(i);
-            if (i < cb->layDanhSachGheTrong().kichThuoc() - 1) cout << ", ";
-        }
-        cout << endl;
-
-        cout << "\nNhap so ghe: ";
-        int soGhe;
-        cin >> soGhe;
-        cin.ignore();
 
         // TC19: Đặt vé hợp lệ
         Ve ve(maCB, *kh, soGhe);
@@ -1060,6 +1097,14 @@ private:
         if (kiemTraChuoiRong(cmnd)) {
             setColor(12);
             cout << "Loi: Khong duoc de trong!\n";
+            Sleep(2000);
+            return;
+        }
+
+        // Validate CMND format
+        if (!kiemTraCMND(cmnd)) {
+            setColor(12);
+            cout << "Loi: CMND khong hop le! (Chi chua so va toi da 10 chu so)\n";
             Sleep(2000);
             return;
         }
